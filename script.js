@@ -492,11 +492,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const line3Chars = '결과를 확인하시겠습니까?'.split('');
 
         const glitchChars = [
-            '\uFFFD', '\uFFFD', '\uFFFD', '\uFFFD', '\uFFFD', '\uFFFD', //  문자가 가장 많이 나오도록 빈도 대폭 증가
+            '\uFFFD', '\uFFFD', '\uFFFD', '\uFFFD', '\uFFFD', '\uFFFD', '\uFFFD', '\uFFFD', '\uFFFD', '\uFFFD', //  문자 빈도 더욱 증가
             '□', '▒', '░', '?', '#', '_', '0', '1',
             'Ã', 'Â', 'ê', 'ë', 'ø', 'æ', 'ð', 'ñ', 'þ', 'µ', '¥', '¤', '¬',
             'ㅁ', 'ㄴ', 'ㅏ', 'ㅣ', 'ㅇ', 'ㄱ',
-            '뷁', '쀍', '뭚', '훍', '췍', '꿿'
+            '뜫', '뚅', '씠', '꺏', '껅', '쓺', '읅', '끫', '뛣', '쐓',
+            '쯫', '쀫', '홁', '꿁', '뮻', '얅', '쓔', '휑', '쫣', '궭'
         ];
 
         const corrupted1 = new Map();
