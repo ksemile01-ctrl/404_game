@@ -496,8 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
             '□', '▒', '░', '?', '#', '_', '0', '1',
             'Ã', 'Â', 'ê', 'ë', 'ø', 'æ', 'ð', 'ñ', 'þ', 'µ', '¥', '¤', '¬',
             'ㅁ', 'ㄴ', 'ㅏ', 'ㅣ', 'ㅇ', 'ㄱ',
-            '뜫', '뚅', '씠', '꺏', '껅', '쓺', '읅', '끫', '뛣', '쐓',
-            '쯫', '쀫', '홁', '꿁', '뮻', '얅', '쓔', '휑', '쫣', '궭'
+            '뜫', '뚅', '씠', '끫', '뛣', '쐓', '쯫', '쀫', '홁', '꿁', '뮻', '얅', '궭'
         ];
 
         const corrupted1 = new Map();
@@ -717,14 +716,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="roulette-desc">하나의 보조 효과를 획득할 수 있습니다.</div>
                 <div class="roulette-wheel-container">
                     <div class="roulette-pointer"></div>
-                    <div class="roulette-wheel"></div>
-                    <div class="roulette-labels">
-                        <div class="roulette-label label-1">힌트 보기</div>
-                        <div class="roulette-label label-2">방해물 제거</div>
-                        <div class="roulette-label label-3">시간 단축</div>
-                        <div class="roulette-label label-4">기록 보호</div>
-                        <div class="roulette-label label-5">쉴드</div>
-                        <div class="roulette-label label-6">보상 없음</div>
+                    <div class="roulette-wheel-group">
+                        <div class="roulette-wheel"></div>
+                        <div class="roulette-labels">
+                            <div class="roulette-label label-1">힌트 보기</div>
+                            <div class="roulette-label label-2">방해물 제거</div>
+                            <div class="roulette-label label-3">시간 단축</div>
+                            <div class="roulette-label label-4">기록 보호</div>
+                            <div class="roulette-label label-5">쉴드</div>
+                            <div class="roulette-label label-6">보상 없음</div>
+                        </div>
                     </div>
                     <div class="roulette-center">GO</div>
                 </div>
