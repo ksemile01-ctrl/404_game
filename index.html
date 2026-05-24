@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 상단 우측 아이콘 컨테이너 -->
+    <div id="top-icons">
+        <button id="icon-pause" class="icon-btn" title="일시정지">⏸</button>
+        <button id="icon-power" class="icon-btn" title="게임 종료">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+        </button>
+    </div>
+
+    <!-- 동적으로 생성되는 방해물들이 body 바로 아래에 추가됩니다. -->
+
+    <!-- 이스터에그 화면 (기본 숨김) -->
+    <div id="easter-egg-screen" class="hidden">
+        <p>지금, 무엇을 끝내고 싶었나요?</p>
+    </div>
+
+    <!-- 3분 경과 시 나타나는 가짜 엔딩 화면 (기본 숨김) -->
+    <div id="fake-ending-screen" class="hidden">
+        <h1>CLEAR</h1>
+        <p>게임의 규칙을 이해했습니다.</p>
+        <p>결과를 확인하시겠습니까?</p>
+        <button id="fake-ending-btn">결과 확인</button>
+    </div>
+
+    <!-- 5분 경과 시 나타나는 진짜 엔딩 화면 (기본 숨김) -->
+    <div id="true-ending-screen" class="hidden">
+        <h1 id="true-ending-404">404</h1>
+        <div id="true-ending-texts" class="hidden"></div>
+        <button id="true-ending-restart-btn" class="hidden">다시 시작하기</button>
+    </div>
+
+    <!-- 클릭 실패 시 나타나는 게임 종료(오버) 화면 (기본 숨김) -->
+    <div id="game-over-screen" class="hidden">
+        <h1>404</h1>
+        <p id="game-over-msg">아무것도 하지 않는 데 실패했습니다.</p>
+        <p id="game-over-record-container">기록: <span id="record-time">0</span>초</p>
+        <p id="game-over-footer">게임이 종료됩니다.</p>
+        <button id="restart-btn" class="hidden">다시 시작하기</button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
