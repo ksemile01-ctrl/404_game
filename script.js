@@ -322,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1초 뒤에 실패 처리
         pauseTrapTimer = setTimeout(() => {
             pauseTrapTimer = null; // 초기화
-            gameOver("> 잘못된 통제 시도", false, "pause_trap");
+            gameOver("> 불필요한 정지 요청", false, "pause_trap");
         }, 1000);
     });
 
@@ -441,13 +441,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showCursorTag(text, type) {
-        if (cursorTagEl) cursorTagEl.remove();
+        if (cursorTagEl && document.body.contains(cursorTagEl)) cursorTagEl.remove();
         
         cursorTagEl = document.createElement('div');
         cursorTagEl.className = 'cursor-tag';
         cursorTagEl.textContent = text;
         cursorTagEl.dataset.type = type;
         
+        // 12px ~ 18px offset
         let px = mouseX + 15;
         let py = mouseY + 15;
         if (px > window.innerWidth - 180) px = window.innerWidth - 180;
@@ -457,13 +458,14 @@ document.addEventListener('DOMContentLoaded', () => {
         cursorTagEl.style.top = py + 'px';
         document.body.appendChild(cursorTagEl);
         
+        // 즉시 투명도 애니메이션
         requestAnimationFrame(() => {
             cursorTagEl.style.opacity = '1';
         });
         
         setTimeout(() => {
             removeCursorTag(cursorTagEl);
-        }, 1800);
+        }, 1200);
     }
 
     function removeCursorTag(el) {
@@ -478,26 +480,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showCursorRing() {
-        if (cursorRingEl) cursorRingEl.remove();
+        if (cursorRingEl && document.body.contains(cursorRingEl)) cursorRingEl.remove();
         
         cursorRingEl = document.createElement('div');
         cursorRingEl.className = 'cursor-ring';
+        // transform: translate(-50%, -50%) 속성이 CSS에 있으므로 mouseX, mouseY를 바로 넣으면 완벽히 중심 정렬됨
         cursorRingEl.style.left = mouseX + 'px';
         cursorRingEl.style.top = mouseY + 'px';
         document.body.appendChild(cursorRingEl);
         
+        // 즉각 애니메이션 트리거
         requestAnimationFrame(() => {
             cursorRingEl.classList.add('active');
         });
         
+        // 유지 시간 대폭 단축 (0.4초 후 사라지기 시작)
         setTimeout(() => {
             if (cursorRingEl) {
                 cursorRingEl.style.opacity = '0';
                 setTimeout(() => {
-                    if (cursorRingEl && document.body.contains(cursorRingEl)) cursorRingEl.remove();
-                }, 800);
+                    if (cursorRingEl && document.body.contains(cursorRingEl)) {
+                        cursorRingEl.remove();
+                    }
+                }, 400); // CSS transition과 시간 맞춤
             }
-        }, 1000);
+        }, 400);
     }
 
     function resetCursorDetection() {
@@ -732,111 +739,46 @@ document.addEventListener('DOMContentLoaded', () => {
         pEls[0].innerHTML = '게임의 규칙을 이해했습니다.';
         pEls[1].innerHTML = '결과를 확인하시겠습니까?';
 
-        // --- 데이터 손상 글리치 (가짜 엔딩 화면 적용) ---
-        const line1Chars = 'CLEAR'.split('');
-        const line2Chars = '게임의 규칙을 이해했습니다.'.split('');
-        const line3Chars = '결과를 확인하시겠습니까?'.split('');
-
-        const glitchChars = [
-            '\uFFFD', '\uFFFD', '\uFFFD', '\uFFFD', '\uFFFD', '\uFFFD', '\uFFFD', '\uFFFD', '\uFFFD', '\uFFFD', //  문자 빈도 더욱 증가
-            '□', '▒', '░', '?', '#', '_', '0', '1',
-            'Ã', 'Â', 'ê', 'ë', 'ø', 'æ', 'ð', 'ñ', 'þ', 'µ', '¥', '¤', '¬',
-            'ㅁ', 'ㄴ', 'ㅏ', 'ㅣ', 'ㅇ', 'ㄱ',
-            '뜫', '뚅', '씠', '끫', '뛣', '쐓', '쯫', '쀫', '홁', '꿁', '뮻', '얅', '궭'
-        ];
-
-        const corrupted1 = new Map();
-        const corrupted2 = new Map();
-        const corrupted3 = new Map();
-
-        function getRandomGlitchChar() {
-            return glitchChars[Math.floor(Math.random() * glitchChars.length)];
-        }
-
-        function renderCorrupted() {
+        // --- 데이터 조용한 흩어짐 연출 (가짜 엔딩 화면 적용) ---
+        function scatterFakeEndingText() {
             if (isGameOver || fakeEndingScreen.classList.contains('hidden')) return;
-            const r1 = line1Chars.map((ch, i) => corrupted1.has(i) ? corrupted1.get(i) : ch).join('');
-            const r2 = line2Chars.map((ch, i) => corrupted2.has(i) ? corrupted2.get(i) : ch).join('');
-            const r3 = line3Chars.map((ch, i) => corrupted3.has(i) ? corrupted3.get(i) : ch).join('');
-            h1El.innerHTML = r1;
-            pEls[0].innerHTML = r2;
-            pEls[1].innerHTML = r3;
-        }
 
-        function pickStart(chars, corruptedMap) {
-            let idx = Math.floor(Math.random() * chars.length);
-            let tries = 0;
-            while ((chars[idx] === ' ' || corruptedMap.has(idx)) && tries < 30) {
-                idx = Math.floor(Math.random() * chars.length);
-                tries++;
-            }
-            return idx;
-        }
-
-        function spreadOnce(corruptedMap, chars) {
-            const frontier = Array.from(corruptedMap.keys());
-            frontier.forEach(idx => {
-                let left = idx - 1;
-                while (left >= 0 && chars[left] === ' ') left--;
-                if (left >= 0 && !corruptedMap.has(left) && Math.random() < 0.3) {
-                    corruptedMap.set(left, getRandomGlitchChar());
-                }
-                
-                let right = idx + 1;
-                while (right < chars.length && chars[right] === ' ') right++;
-                if (right < chars.length && !corruptedMap.has(right) && Math.random() < 0.3) {
-                    corruptedMap.set(right, getRandomGlitchChar());
+            // 각 요소를 글자 단위의 span으로 쪼개기
+            [h1El, pEls[0], pEls[1]].forEach(el => {
+                if (!el.dataset.scatterReady) {
+                    const text = el.innerText;
+                    el.innerHTML = '';
+                    for (let char of text) {
+                        const span = document.createElement('span');
+                        span.textContent = char === ' ' ? '\u00A0' : char; // 공백 형태 유지
+                        span.style.display = 'inline-block';
+                        span.style.transition = 'transform 1.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 1.8s ease-out';
+                        el.appendChild(span);
+                    }
+                    el.dataset.scatterReady = 'true';
                 }
             });
 
-            if (Math.random() < 0.15) {
-                let uncorrupted = [];
-                chars.forEach((ch, i) => {
-                    if (ch !== ' ' && !corruptedMap.has(i)) uncorrupted.push(i);
+            // 렌더링 후 약간의 딜레이를 두고 동시에 흩어짐 트리거
+            setTimeout(() => {
+                if (isGameOver || fakeEndingScreen.classList.contains('hidden')) return;
+
+                [h1El, pEls[0], pEls[1]].forEach(el => {
+                    const spans = el.querySelectorAll('span');
+                    spans.forEach(span => {
+                        // 공백은 이동시킬 필요 없음
+                        if (span.textContent.trim() === '') return;
+                        
+                        // 화려하지 않고 조용한 붕괴 (±10~20px의 미세한 이동과 약간의 회전)
+                        const tx = (Math.random() - 0.5) * 30; 
+                        const ty = (Math.random() - 0.5) * 20 + 5; // 살짝 아래로 처지는 느낌
+                        const rot = (Math.random() - 0.5) * 25;
+
+                        span.style.transform = `translate(${tx}px, ${ty}px) rotate(${rot}deg)`;
+                        span.style.opacity = '0';
+                    });
                 });
-                if (uncorrupted.length > 0) {
-                    let randIdx = uncorrupted[Math.floor(Math.random() * uncorrupted.length)];
-                    corruptedMap.set(randIdx, getRandomGlitchChar());
-                }
-            }
-        }
-
-        function startCorruption() {
-            if (isGameOver || fakeEndingScreen.classList.contains('hidden')) return;
-
-            corrupted1.set(pickStart(line1Chars, corrupted1), getRandomGlitchChar());
-            
-            setTimeout(() => {
-                if (isGameOver || fakeEndingScreen.classList.contains('hidden')) return;
-                corrupted2.set(pickStart(line2Chars, corrupted2), getRandomGlitchChar());
-            }, 600);
-
-            setTimeout(() => {
-                if (isGameOver || fakeEndingScreen.classList.contains('hidden')) return;
-                corrupted3.set(pickStart(line3Chars, corrupted3), getRandomGlitchChar());
-            }, 1200);
-
-            renderCorrupted();
-
-            const target1 = Math.floor(line1Chars.filter(c => c !== ' ').length * 0.85);
-            const target2 = Math.floor(line2Chars.filter(c => c !== ' ').length * 0.85);
-            const target3 = Math.floor(line3Chars.filter(c => c !== ' ').length * 0.85);
-
-            const spreadInterval = setInterval(() => {
-                if (isGameOver || fakeEndingScreen.classList.contains('hidden')) {
-                    clearInterval(spreadInterval);
-                    return;
-                }
-
-                spreadOnce(corrupted1, line1Chars);
-                spreadOnce(corrupted2, line2Chars);
-                spreadOnce(corrupted3, line3Chars);
-                renderCorrupted();
-
-                if (corrupted1.size >= target1 && corrupted2.size >= target2 && corrupted3.size >= target3) {
-                    clearInterval(spreadInterval);
-                }
-            }, 300);
+            }, 50);
         }
 
         // 가짜 엔딩(CLEAR) 화면이 뜬 후 15초간 정적 유지 (완전 끝난 것처럼 연출)
@@ -846,10 +788,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 anxietyActive = true;
                 updateAnxietyEffect();
 
-                // 후반 방해물이 다시 나오기 시작한 직후(0.7초 뒤) 가짜 엔딩 글자 깨짐 효과 시작
+                // 후반 방해물이 다시 나오기 시작한 직후(0.7초 뒤) 가짜 엔딩 글자 무너짐 효과 시작
                 setTimeout(() => {
                     if (!isGameOver) {
-                        startCorruption();
+                        scatterFakeEndingText();
                     }
                 }, 700);
             }
@@ -1221,7 +1163,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'reward_roulette': return '즉각적 보상';
             case 'save_attempt': return '기록 불안';
             case 'fake_ending': return '결과 확인';
-            case 'pause_trap': return '통제 욕구';
+            case 'pause_trap': return '정지 요청';
             case 'power_button': return '이탈 선택';
             case 'late_obstacle':
             default: return '클릭 유도 반응';

@@ -86,23 +86,29 @@ body, html {
     pointer-events: none;
 }
 
-/* 다시 시작 버튼 (게임 오버 및 진 엔딩) */
-#restart-btn, #true-ending-restart-btn {
-    margin-top: 40px;
+/* 다시 시작 및 기록 보기 공통 버튼 스타일 */
+.system-action-btn {
+    margin-top: 0;
     padding: 10px 20px;
     background-color: transparent;
-    color: #ffffff;
-    border: 1px solid #ffffff;
+    color: #a0a0a0; /* 연회색 */
+    border: 1px solid #555555; /* 차가운 회색 테두리 */
     border-radius: 4px;
     font-size: 1rem;
     cursor: pointer;
     font-weight: normal;
     transition: all 0.3s ease;
+    font-family: inherit;
+    outline: none; /* 클릭 시 브라우저 기본 포커스 테두리 제거 */
+    letter-spacing: 1px;
 }
 
-#restart-btn:hover, #true-ending-restart-btn:hover {
-    background-color: #ffffff;
-    color: #000000;
+.system-action-btn:hover, 
+.system-action-btn:focus, 
+.system-action-btn:active {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border-color: #888888;
 }
 
 /* ----------------------------------
@@ -287,7 +293,7 @@ body, html {
     z-index: 2499;
     transform: translate(-50%, -50%) scale(0.6);
     opacity: 0;
-    transition: transform 0.8s ease-out, opacity 0.8s ease-out;
+    transition: transform 0.4s ease-out, opacity 0.4s ease-out;
 }
 .cursor-ring.active {
     transform: translate(-50%, -50%) scale(1.2);
@@ -868,29 +874,28 @@ body.game-over { background-color: #0b0b0b; }
     position: absolute;
     top: 50%;
     left: 50%;
-    /* 너비를 좁혀서 강제로 2줄 바꿈이 안정적으로 일어나게 유도 */
-    width: 50px;
+    /* 텍스트가 룰렛 중심에서 바깥으로 방사형(Radial)으로 퍼지도록 한 줄로 표시 */
+    white-space: nowrap;
     text-align: center;
     font-size: 0.8rem;
     font-weight: 800;
     color: #61361b;
     text-shadow: 0 1px 1px rgba(255,255,255,0.7);
     letter-spacing: -0.05em;
-    line-height: 1.15;
-    word-break: keep-all;
 }
 
 /* 
-  translateY(-72px) 로 중앙 버튼과 바깥 테두리의 완벽한 중간 지점으로 위치 보정
-  각 칸의 중앙 각도로 회전
-  거꾸로 읽히지 않도록 하단부(90도~270도) 칸들은 rotate(180deg) 추가
+  translateY(-72px) 로 위치를 이동한 뒤, 
+  방사형(Radial)으로 정렬되도록 추가 회전(-90deg 또는 90deg) 적용.
+  오른쪽 절반(0~180도)은 -90deg로 안에서 밖으로, 
+  왼쪽 절반(180~360도)은 90deg로 밖에서 안으로 읽히도록 하여 180도 뒤집힘 방지.
 */
-.roulette-label.label-1 { transform: translate(-50%, -50%) rotate(30deg) translateY(-72px); }
-.roulette-label.label-2 { transform: translate(-50%, -50%) rotate(95deg) translateY(-72px) rotate(180deg); }
-.roulette-label.label-3 { transform: translate(-50%, -50%) rotate(157.5deg) translateY(-72px) rotate(180deg); }
-.roulette-label.label-4 { transform: translate(-50%, -50%) rotate(215deg) translateY(-72px) rotate(180deg); }
-.roulette-label.label-5 { transform: translate(-50%, -50%) rotate(267.5deg) translateY(-72px) rotate(180deg); }
-.roulette-label.label-6 { transform: translate(-50%, -50%) rotate(325deg) translateY(-72px); color: #7a7069; }
+.roulette-label.label-1 { transform: translate(-50%, -50%) rotate(30deg) translateY(-72px) rotate(-90deg); }
+.roulette-label.label-2 { transform: translate(-50%, -50%) rotate(95deg) translateY(-72px) rotate(-90deg); }
+.roulette-label.label-3 { transform: translate(-50%, -50%) rotate(157.5deg) translateY(-72px) rotate(-90deg); }
+.roulette-label.label-4 { transform: translate(-50%, -50%) rotate(215deg) translateY(-72px) rotate(90deg); }
+.roulette-label.label-5 { transform: translate(-50%, -50%) rotate(267.5deg) translateY(-72px) rotate(90deg); }
+.roulette-label.label-6 { transform: translate(-50%, -50%) rotate(325deg) translateY(-72px) rotate(90deg); color: #7a7069; }
 
 .roulette-center {
     position: absolute;
