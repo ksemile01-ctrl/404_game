@@ -1156,9 +1156,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         typeWriterTimer = setTimeout(typeWriter, 1200);
                     }
                 } else {
-                    // 타이핑이 모두 끝난 뒤 '다시 시작' 버튼 노출
+                    // 타이핑이 모두 끝난 뒤 '다시 시작' 및 '기록 보기' 버튼 노출
                     if (document.getElementById('true-ending-restart-btn')) {
                         document.getElementById('true-ending-restart-btn').classList.remove('hidden');
+                        if (document.getElementById('true-ending-view-records-btn')) {
+                            document.getElementById('true-ending-view-records-btn').classList.remove('hidden');
+                        }
                     }
                 }
             }
@@ -1297,8 +1300,11 @@ document.addEventListener('DOMContentLoaded', () => {
             reactionAnalysisContainer.classList.add('hidden');
         }
 
-        // 어떤 실패/종료든 항상 다시 시작 버튼 표시
+        // 어떤 실패/종료든 항상 다시 시작 및 기록 보기 버튼 표시
         restartBtn.classList.remove('hidden');
+        if (document.getElementById('view-records-btn')) {
+            document.getElementById('view-records-btn').classList.remove('hidden');
+        }
 
         if (isPowerQuit) {
             recordContainer.classList.add('hidden');
@@ -1316,4 +1322,73 @@ document.addEventListener('DOMContentLoaded', () => {
 
         gameOverScreen.classList.remove('hidden');
     }
+
+    // --- 기록 보기 기능 ---
+    async function showGameRecords() {
+        const modal = document.getElementById('records-modal');
+        const container = document.getElementById('records-list-container');
+        if (!modal || !container) return;
+        
+        modal.classList.remove('hidden');
+        container.innerHTML = '<p>> 기록을 불러오는 중...</p>';
+
+        try {
+            if (!supabaseClient) {
+                container.innerHTML = '<p>> Supabase에 연결되지 않았습니다.</p>';
+                return;
+            }
+
+            const { data, error } = await supabaseClient
+                .from('game_records')
+                .select('created_at, play_time, result, reaction_type')
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            if (error) {
+                console.error("기록 불러오기 에러:", error);
+                container.innerHTML = '<p>> 기록을 불러오지 못했습니다.</p>';
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                container.innerHTML = '<p>> 저장된 기록이 없습니다.</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+            data.forEach(row => {
+                const dateObj = new Date(row.created_at);
+                const dateStr = `${dateObj.getFullYear()}.${String(dateObj.getMonth()+1).padStart(2,'0')}.${String(dateObj.getDate()).padStart(2,'0')}`;
+                
+                const mm = String(Math.floor(row.play_time / 60)).padStart(2, '0');
+                const ss = String(row.play_time % 60).padStart(2, '0');
+                const timeStr = `${mm}:${ss}`;
+
+                const resultStr = row.result === 'success' ? '성공' : '실패';
+                const reactionStr = row.reaction_type === 'none' ? '반응 없음' : row.reaction_type;
+
+                const div = document.createElement('div');
+                div.className = 'record-item';
+                div.innerHTML = `<span>${dateStr}</span> <span>|</span> <span>${timeStr}</span> <span>|</span> <span>${resultStr}</span> <span>|</span> <span>${reactionStr}</span>`;
+                container.appendChild(div);
+            });
+        } catch (err) {
+            console.error("기록 불러오기 예외:", err);
+            container.innerHTML = '<p>> 기록을 불러오지 못했습니다.</p>';
+        }
+    }
+
+    const viewRecordsBtn = document.getElementById('view-records-btn');
+    if (viewRecordsBtn) viewRecordsBtn.addEventListener('click', showGameRecords);
+
+    const trueEndingViewRecordsBtn = document.getElementById('true-ending-view-records-btn');
+    if (trueEndingViewRecordsBtn) trueEndingViewRecordsBtn.addEventListener('click', showGameRecords);
+
+    const closeRecordsBtn = document.getElementById('close-records-btn');
+    if (closeRecordsBtn) {
+        closeRecordsBtn.addEventListener('click', () => {
+            document.getElementById('records-modal').classList.add('hidden');
+        });
+    }
+
 });
