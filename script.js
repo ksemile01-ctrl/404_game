@@ -1,4 +1,76 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Supabase 설정 및 연결
+    let supabaseClient = null;
+    try {
+        if (window.supabase && window.supabase.createClient) {
+            const SUPABASE_URL = "https://zetuptocxhanlepemii.supabase.co";
+            const SUPABASE_KEY = "sb_publishable_e1tRaGvBx72gleIUuPM4Pg_f6kR2vbB";
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            console.log("Supabase client initialized");
+        } else {
+            console.warn("Supabase library not loaded");
+        }
+    } catch (err) {
+        console.warn("Supabase initialization failed:", err);
+    }
+
+    // 세션 ID 생성 및 가져오기
+    function getSessionId() {
+        let sessionId = localStorage.getItem('404_game_session_id');
+        if (!sessionId) {
+            sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('404_game_session_id', sessionId);
+        }
+        return sessionId;
+    }
+
+    // 기록 저장 상태 변수
+    let hasSavedGameRecord = false;
+
+    // --- Supabase 기록 저장 함수 ---
+    async function saveGameRecord(record) {
+        console.log("saveGameRecord called:", record);
+        
+        if (hasSavedGameRecord) {
+            console.log("Record already saved for this session, skipping.");
+            return;
+        }
+        hasSavedGameRecord = true;
+        
+        try {
+            if (!supabaseClient) {
+                console.warn("Supabase client is not initialized");
+                return;
+            }
+
+            const payload = {
+                session_id: getSessionId(),
+                play_time: Number(record.play_time || 0),
+                result: record.result || "unknown",
+                reaction_type: record.reaction_type || "unknown",
+                clicked_object: record.clicked_object || "unknown",
+                end_type: record.end_type || "unknown"
+            };
+
+            console.log("Supabase insert payload:", payload);
+
+            const { data, error } = await supabaseClient
+                .from("game_records")
+                .insert([payload])
+                .select();
+
+            if (error) {
+                console.error("Supabase save failed:", error);
+                console.error("Error details:", { message: error.message, details: error.details, hint: error.hint, code: error.code });
+                return;
+            }
+
+            console.log("Supabase save success:", data);
+        } catch (err) {
+            console.error("Supabase save exception:", err);
+        }
+    }
+
     // --- 게임 설정 상수 ---
     const FIRST_DOT_TIME = 5; // 첫 번째 점 등장 시간 (초)
     const EARLY_OBSTACLE_START_MIN = 13; // 초반 방해물 시작 최소 시간 (초)
@@ -33,6 +105,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const REWARD_ROULETTE_END_TIME = 225; // 3분 45초
     let hasShownRewardRoulette = false;
 
+    // 상태 문구 플래그
+    let hasShownMidStatus = false;
+    let hasShownLateStatus = false;
+    let hasShownPreFakeEndingStatus = false;
+
+    // 커서 감지 시스템 연출 변수
+    let lastMouseMoveTime = Date.now();
+    let mouseX = 0;
+    let mouseY = 0;
+    let lastIdleTagTime = 0;
+    let lastHesitationTagTime = 0;
+    let cursorDetectionActive = false;
+    let cursorTagEl = null;
+    let cursorRingEl = null;
+    let checkCursorInterval = null;
+
+    // 커서 감지 시스템 연출 시작 시간 설정 (진짜 엔딩 직전)
+    const TRUE_ENDING_TIME = 300;
+    const CURSOR_DETECTION_BEFORE_TRUE_ENDING = 25;
+    const CURSOR_DETECTION_START_TIME = TRUE_ENDING_TIME - CURSOR_DETECTION_BEFORE_TRUE_ENDING;
+
+    // 테스트용 플래그 (true로 설정 시 시작부터 커서 감지 작동)
+    const TEST_CURSOR_DETECTION = false;
+
     // UI 요소
     const pauseBtn = document.getElementById('icon-pause');
     const powerBtn = document.getElementById('icon-power');
@@ -50,12 +146,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
             playTime++;
 
+            // 테스트 모드일 경우 시작 시점에 바로 커서 감지 켬
+            if (playTime === 1 && TEST_CURSOR_DETECTION) {
+                initCursorDetection();
+            }
+
             if (playTime === FIRST_DOT_TIME) { showFirstDotObstacle(); }
-            if (playTime === 12) { showInputWaitingText(); }
+            if (playTime === 12) { showStatusMessage('사용자 응답 대기중...'); }
             if (playTime === 16) { startSpawningObstacles(); }
+            if (playTime === 55 && !hasShownMidStatus) { showStatusMessage('아직 입력이 감지되지 않았습니다.'); hasShownMidStatus = true; }
             if (playTime === 60) { startSpawningMidObstacles(); }
             if (playTime === 160) { triggerFakeErrorEvent(); }
-            if (playTime === 180) { triggerThreeMinuteEvent(); }
+            if (playTime === 172 && !hasShownPreFakeEndingStatus) { showStatusMessage('종료 조건 확인 중...'); hasShownPreFakeEndingStatus = true; }
+            if (playTime === 180) { 
+                triggerThreeMinuteEvent(); 
+            }
+            if (playTime === 195 && !hasShownLateStatus) { showStatusMessage('사용자 반응 재요청 중...'); hasShownLateStatus = true; }
             
             // 후반부 보상 룰렛 등장 로직 (3분 25초 ~ 3분 45초 랜덤)
             if (playTime >= REWARD_ROULETTE_START_TIME && playTime <= REWARD_ROULETTE_END_TIME && !hasShownRewardRoulette) {
@@ -81,7 +187,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            if (playTime === 300) { triggerFiveMinuteEvent(); }
+            if (playTime === CURSOR_DETECTION_START_TIME) {
+                if (!cursorDetectionActive) initCursorDetection();
+            }
+
+            if (playTime === TRUE_ENDING_TIME) { triggerFiveMinuteEvent(); }
         }, 1000);
     }
 
@@ -106,6 +216,11 @@ document.addEventListener('DOMContentLoaded', () => {
         mouseMovementIntensity = 0;
         hasShownSavePrompt = false;
         hasShownRewardRoulette = false;
+        hasShownMidStatus = false;
+        hasShownLateStatus = false;
+        hasShownPreFakeEndingStatus = false;
+        hasSavedGameRecord = false;
+        resetCursorDetection();
         document.body.style.backgroundColor = ''; // 배경색 복구
         document.body.style.boxShadow = '';
         document.body.style.transform = '';
@@ -145,8 +260,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     startMainTimer(); // 최초 실행
 
-    // --- 후반부 불안 연출 (마우스 반응) ---
+    // --- 후반부 불안 연출 및 커서 감지 ---
     document.addEventListener('mousemove', (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+        lastMouseMoveTime = Date.now();
+
+        if (cursorTagEl && cursorTagEl.dataset.type === 'idle') {
+            removeCursorTag(cursorTagEl);
+        }
+
         if (!anxietyActive || isGameOver) return;
 
         // 마우스 이동 속도 기반 강도 증가
@@ -198,7 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1초 뒤에 실패 처리
         pauseTrapTimer = setTimeout(() => {
             pauseTrapTimer = null; // 초기화
-            gameOver("멈춤마저 버튼으로 해결하려 했습니다.<br>게임이 종료됩니다.", false, "pause_trap");
+            gameOver("> 잘못된 통제 시도", false, "pause_trap");
         }, 1000);
     });
 
@@ -258,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 일반적인 종료 버튼 처리 (이스터에그 조건 미달 시)
-        gameOver("게임이 종료되었습니다.", true, "power_button");
+        gameOver("> 세션 종료됨", true, "power_button");
     });
 
     // 3. 다시 시작 버튼 이벤트 바인딩
@@ -267,13 +390,135 @@ document.addEventListener('DOMContentLoaded', () => {
         trueEndingRestartBtn.addEventListener('click', resetGame);
     }
 
-    // --- 초반 테스트용 대기 문구 (12초) ---
-    function showInputWaitingText() {
+    // --- 후반부 커서 감지 시스템 연출 ---
+    function initCursorDetection() {
+        if (checkCursorInterval) return;
+        cursorDetectionActive = true;
+        
+        checkCursorInterval = setInterval(() => {
+            if (isGameOver || isEasterEggActive || !cursorDetectionActive) return;
+            
+            const now = Date.now();
+            
+            // 1. 멈춤(반응 없음) 감지
+            if (now - lastMouseMoveTime > 2500) {
+                if (now - lastIdleTagTime > 5000) {
+                    showCursorTag('STATUS: 반응 없음 ...', 'idle');
+                    lastIdleTagTime = now;
+                }
+            }
+            
+            // 2. 방해물 근처 접근(망설임) 감지
+            if (now - lastMouseMoveTime < 2500 && now - lastHesitationTagTime > 4000) {
+                // 클릭을 유도하는 요소들을 더 넓게 감지
+                const obstacles = document.querySelectorAll('.obstacle, .trap, .fake-button, .clickable, .reward-roulette-popup, .save-prompt, .fake-ending, button, a, [data-clickable="true"]');
+                let isNear = false;
+                
+                for (let obs of obstacles) {
+                    const rect = obs.getBoundingClientRect();
+                    // 보이지 않는 요소는 제외
+                    if (rect.width === 0 && rect.height === 0) continue;
+                    
+                    const centerX = rect.left + rect.width / 2;
+                    const centerY = rect.top + rect.height / 2;
+                    const dist = Math.sqrt(Math.pow(mouseX - centerX, 2) + Math.pow(mouseY - centerY, 2));
+                    
+                    const threshold = Math.max(rect.width, rect.height) / 2 + 80;
+                    if (dist < threshold) {
+                        isNear = true;
+                        break;
+                    }
+                }
+                
+                if (isNear) {
+                    showCursorTag('CURSOR: 망설임 감지', 'hesitation');
+                    showCursorRing();
+                    lastHesitationTagTime = now;
+                }
+            }
+        }, 300);
+    }
+
+    function showCursorTag(text, type) {
+        if (cursorTagEl) cursorTagEl.remove();
+        
+        cursorTagEl = document.createElement('div');
+        cursorTagEl.className = 'cursor-tag';
+        cursorTagEl.textContent = text;
+        cursorTagEl.dataset.type = type;
+        
+        let px = mouseX + 15;
+        let py = mouseY + 15;
+        if (px > window.innerWidth - 180) px = window.innerWidth - 180;
+        if (py > window.innerHeight - 40) py = window.innerHeight - 40;
+        
+        cursorTagEl.style.left = px + 'px';
+        cursorTagEl.style.top = py + 'px';
+        document.body.appendChild(cursorTagEl);
+        
+        requestAnimationFrame(() => {
+            cursorTagEl.style.opacity = '1';
+        });
+        
+        setTimeout(() => {
+            removeCursorTag(cursorTagEl);
+        }, 1800);
+    }
+
+    function removeCursorTag(el) {
+        let target = el || cursorTagEl;
+        if (target) {
+            target.style.opacity = '0';
+            setTimeout(() => {
+                if (target && document.body.contains(target)) target.remove();
+                if (target === cursorTagEl) cursorTagEl = null;
+            }, 300);
+        }
+    }
+
+    function showCursorRing() {
+        if (cursorRingEl) cursorRingEl.remove();
+        
+        cursorRingEl = document.createElement('div');
+        cursorRingEl.className = 'cursor-ring';
+        cursorRingEl.style.left = mouseX + 'px';
+        cursorRingEl.style.top = mouseY + 'px';
+        document.body.appendChild(cursorRingEl);
+        
+        requestAnimationFrame(() => {
+            cursorRingEl.classList.add('active');
+        });
+        
+        setTimeout(() => {
+            if (cursorRingEl) {
+                cursorRingEl.style.opacity = '0';
+                setTimeout(() => {
+                    if (cursorRingEl && document.body.contains(cursorRingEl)) cursorRingEl.remove();
+                }, 800);
+            }
+        }, 1000);
+    }
+
+    function resetCursorDetection() {
+        cursorDetectionActive = false;
+        if (checkCursorInterval) {
+            clearInterval(checkCursorInterval);
+            checkCursorInterval = null;
+        }
+        removeCursorTag();
+        if (cursorRingEl && document.body.contains(cursorRingEl)) {
+            cursorRingEl.remove();
+            cursorRingEl = null;
+        }
+    }
+
+    // --- 시스템 상태 문구 (좌측 하단) ---
+    function showStatusMessage(msg) {
         if (isGameOver) return;
 
         let el = document.createElement('div');
         el.className = 'ambient-text';
-        el.textContent = '사용자 응답 대기중...';
+        el.textContent = msg;
 
         // 화면 왼쪽 하단에 시스템 문구처럼 작고 흐리게 배치
         el.style.position = 'fixed';
@@ -612,7 +857,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fakeEndingBtn = document.getElementById('fake-ending-btn');
     fakeEndingBtn.addEventListener('click', () => {
-        if (!isEasterEggActive) gameOver("끝났다고 믿은 순간, 게임은 끝났습니다.", false, "fake_ending");
+        if (!isEasterEggActive) gameOver("> 이른 종료 시도 감지됨", false, "fake_ending");
     });
 
     // --- 후반 방해물 (180초~) ---
@@ -641,13 +886,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => {
                     if (isGameOver) return;
                     let popup = document.createElement('div');
-                    popup.className = 'obstacle obstacle-popup obstacle-late';
+                    popup.className = 'obstacle obstacle-sys-error obstacle-late';
+                    
+                    const titleBarText = "404_game.exe - 시스템 오류";
+                    const msgs = [
+                        "사용자 입력을 처리하는 중 오류가 발생했습니다.<br>확인을 눌러 세션을 복구하십시오.",
+                        "반응 기록을 불러오지 못했습니다.<br>확인을 눌러 기록 동기화를 다시 시도하십시오.",
+                        "종료 조건을 확인할 수 없습니다.<br>확인을 눌러 게임 상태를 다시 계산하십시오."
+                    ];
+                    const msg = msgs[i % msgs.length];
+                    const btnText = "확인";
+
                     popup.innerHTML = `
-                        <div class="popup-header"><span>경고창 ${i + 1}</span><span>X</span></div>
-                        <div class="popup-body">심각한 시스템 오류가 감지되었습니다!</div>
+                        <div class="sys-error-titlebar">
+                            <span class="sys-error-title">${titleBarText}</span>
+                            <button class="sys-error-close">X</button>
+                        </div>
+                        <div class="sys-error-body">
+                            <div class="sys-error-icon">
+                                <svg width="32" height="32" viewBox="0 0 32 32">
+                                    <circle cx="16" cy="16" r="14" fill="#d32f2f" />
+                                    <path d="M10 10 L22 22 M22 10 L10 22" stroke="white" stroke-width="4" stroke-linecap="round" />
+                                </svg>
+                            </div>
+                            <div class="sys-error-message">${msg}</div>
+                        </div>
+                        <div class="sys-error-actions">
+                            <button class="sys-error-confirm">${btnText}</button>
+                        </div>
                     `;
                     popup.style.left = `${x + (i * 25)}px`;
                     popup.style.top = `${y + (i * 25)}px`;
+                    popup.style.zIndex = 600 + i; // 위로 차곡차곡 쌓이게 설정
                     popup.addEventListener('click', () => {
                         if (!isEasterEggActive) gameOver(null, false, "multi_popup");
                     });
@@ -743,7 +1013,7 @@ document.addEventListener('DOMContentLoaded', () => {
             wheel.style.transform = `rotate(${Math.random() * 360 + 360}deg)`;
 
             setTimeout(() => {
-                gameOver("보상 요청이 감지되었습니다.<br>게임이 종료됩니다.", false, "reward_roulette");
+                gameOver("> 보상 요청 감지됨", false, "reward_roulette");
             }, 300);
         });
 
@@ -788,7 +1058,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         el.addEventListener('click', () => {
             if (!isEasterEggActive) {
-                gameOver("<p>기록을 남기려는 순간, 기록이 멈췄습니다.</p><p>게임이 종료됩니다.</p>", false, "save_attempt");
+                gameOver("> 동기화 실패 심각", false, "save_attempt");
             }
         });
 
@@ -825,6 +1095,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const trueEndingScreen = document.getElementById('true-ending-screen');
         trueEndingScreen.classList.remove('hidden');
+
+        console.log("true ending reached, saving record");
+
+        // Supabase 기록 저장 (진짜 엔딩)
+        saveGameRecord({
+            play_time: playTime,
+            result: 'success',
+            reaction_type: 'none',
+            clicked_object: 'none',
+            end_type: 'true_ending'
+        });
 
         // --- 진짜 엔딩 소름 돋는 타이핑 연출 ---
         const h1_404 = document.getElementById('true-ending-404');
@@ -885,13 +1166,85 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 5000);
     }
 
+    let reactionGlitchTimer = null;
+
+    function animateReactionType(finalLabel) {
+        const analysisContainer = document.getElementById('reaction-analysis-container');
+        const analysisMsg = document.getElementById('reaction-analysis-msg');
+        const typeSpan = document.getElementById('reaction-type');
+
+        if (!analysisContainer || !analysisMsg || !typeSpan) return;
+
+        // Reset state
+        clearInterval(reactionGlitchTimer);
+        analysisContainer.classList.remove('hidden');
+        analysisMsg.classList.remove('hidden');
+
+        const glitchChars = ['', '□', '▒', '░', '?', '#', '%', '@', '_', '0', '1', 'Ã', 'Â', 'ø', 'æ'];
+        let glitchCount = 0;
+        const maxGlitches = 25;
+
+        function getRandomGlitchString(length) {
+            let str = '';
+            for (let i = 0; i < length; i++) {
+                str += glitchChars[Math.floor(Math.random() * glitchChars.length)];
+            }
+            return str;
+        }
+
+        reactionGlitchTimer = setInterval(() => {
+            glitchCount++;
+            if (glitchCount <= maxGlitches) {
+                let revealCount = Math.floor((glitchCount / maxGlitches) * finalLabel.length);
+                let fixedPart = finalLabel.substring(0, revealCount);
+                let glitchedPart = getRandomGlitchString(finalLabel.length - revealCount);
+                typeSpan.textContent = fixedPart + glitchedPart;
+            } else {
+                clearInterval(reactionGlitchTimer);
+                analysisMsg.classList.add('hidden');
+                typeSpan.textContent = finalLabel;
+            }
+        }, 70); // 70ms * 25 = 1750ms (~1.75s)
+    }
+
+    function getReactionTypeLabel(type) {
+        switch (type) {
+            case 'first_dot': return '호기심';
+            case 'random_obstacle':
+            case 'mid_obstacle': return '자극 반응';
+            case 'fake_error':
+            case 'multi_popup': return '문제 해결 욕구';
+            case 'reward_roulette': return '즉각적 보상';
+            case 'save_attempt': return '기록 불안';
+            case 'fake_ending': return '결과 확인';
+            case 'pause_trap': return '통제 욕구';
+            case 'power_button': return '이탈 선택';
+            case 'late_obstacle':
+            default: return '클릭 유도 반응';
+        }
+    }
+
     // --- 게임 실패(오버) 및 종료 로직 ---
     function gameOver(customMsg = null, isPowerQuit = false, endType = 'normal') {
         if (isGameOver) return;
         isGameOver = true;
 
+        const reactionTypeText = getReactionTypeLabel(endType);
+
+        console.log("gameOver called, saving record");
+
+        // Supabase 기록 저장 (실패 시)
+        saveGameRecord({
+            play_time: playTime,
+            result: 'fail',
+            reaction_type: reactionTypeText || 'none',
+            clicked_object: endType,
+            end_type: 'click_fail'
+        });
+
         // Supabase 등 나중에 기록 저장을 위해 endType 값을 활용할 수 있도록 출력
         console.log("Game Over Event:", { playTime, isPowerQuit, endType });
+        resetCursorDetection();
          anxietyActive = false;
         document.body.style.backgroundColor = '';
         document.body.style.boxShadow = '';
@@ -919,6 +1272,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const gameOverScreen = document.getElementById('game-over-screen');
         const msgEl = document.getElementById('game-over-msg');
+        const reactionAnalysisContainer = document.getElementById('reaction-analysis-container');
         const recordTimeSpan = document.getElementById('record-time');
         const recordContainer = document.getElementById('game-over-record-container');
         const footerEl = document.getElementById('game-over-footer');
@@ -926,15 +1280,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!customMsg) {
             if (playTime < 60) {
-                customMsg = "게임이 종료됩니다.";
+                customMsg = "> 세션 종료됨";
             } else if (playTime < 180) {
-                customMsg = "방금의 선택으로 게임은 끝났습니다.";
+                customMsg = "> 치명적 선택 감지됨";
             } else {
-                customMsg = "아무것도 하지 않는 데 실패했습니다.";
+                customMsg = "> 아무것도 하지 않음에 실패함";
             }
         }
 
         msgEl.innerHTML = customMsg;
+
+        if (reactionTypeText) {
+            animateReactionType(reactionTypeText);
+        } else {
+            reactionAnalysisContainer.classList.add('hidden');
+        }
 
         // 어떤 실패/종료든 항상 다시 시작 버튼 표시
         restartBtn.classList.remove('hidden');

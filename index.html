@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web Game</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="script.js" defer></script>
 </head>
 <body>
     <!-- 상단 우측 아이콘 컨테이너 -->
@@ -43,13 +46,17 @@
 
     <!-- 클릭 실패 시 나타나는 게임 종료(오버) 화면 (기본 숨김) -->
     <div id="game-over-screen" class="hidden">
-        <h1>404</h1>
-        <p id="game-over-msg">아무것도 하지 않는 데 실패했습니다.</p>
-        <p id="game-over-record-container">기록: <span id="record-time">0</span>초</p>
-        <p id="game-over-footer">게임이 종료됩니다.</p>
-        <button id="restart-btn" class="hidden">다시 시작하기</button>
+        <h1>404 ERROR LOG</h1>
+        <div id="log-panel">
+            <p id="game-over-msg">> 입력 감지됨</p>
+            <div id="reaction-analysis-container" class="hidden">
+                <p id="reaction-analysis-msg">> 반응 유형 분석 중...</p>
+                <p id="reaction-type-container">> 반응 유형: <span id="reaction-type"></span></p>
+            </div>
+            <p id="game-over-record-container">> 기록: <span id="record-time">0</span>초</p>
+            <p id="game-over-footer">> 상태: 종료됨</p>
+        </div>
+        <button id="restart-btn" class="hidden">[ 새 세션 시작 ]</button>
     </div>
-
-    <script src="script.js"></script>
 </body>
 </html>
