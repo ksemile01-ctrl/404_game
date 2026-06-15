@@ -3,10 +3,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let supabaseClient = null;
     try {
         if (window.supabase && window.supabase.createClient) {
-            const SUPABASE_URL = "https://zetuptocxhanlepemii.supabase.co";
+            const SUPABASE_URL = "https://zetupntochxanlepemii.supabase.co";
             const SUPABASE_KEY = "sb_publishable_e1tRaGvBx72gleIUuPM4Pg_f6kR2vbB";
             supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
             console.log("Supabase client initialized");
+            console.log("Current Supabase URL:", SUPABASE_URL);
         } else {
             console.warn("Supabase library not loaded");
         }
